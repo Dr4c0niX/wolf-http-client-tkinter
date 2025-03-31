@@ -4,6 +4,9 @@ from tkinter import messagebox, ttk
 import tkinter.font as tkFont
 import requests
 import json
+import os
+import sys
+import subprocess
 
 BASE_URL = "http://localhost:8080"
 
@@ -17,6 +20,9 @@ DARK_FRAME = "#363636"
 # Variable globale pour stocker le choix de partie
 selected_party_id = None
 selected_role = None
+
+# Ajoutez cette ligne au niveau global (en dehors de toutes les fonctions)
+root = None
 
 # Modifications dans la fonction list_parties
 def list_parties():
@@ -39,33 +45,31 @@ def list_parties():
 
             # Initialiser les variables pour le suivi des erreurs
             failed_parties = []
+            main_frame = None  # Initialisation de main_frame
 
-            # Créer le cadre principal avec défilement
+            # Créer le cadre principal même si aucune donnée n'est chargée
             main_frame = tk.Frame(parties_frame, bg=DARK_FRAME, bd=2, relief=tk.RIDGE)
             main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-            
-            # Modifier les largeurs des colonnes pour un affichage plus large
-            col_widths = [4, 20, 8, 8, 8, 8, 8, 8]  # Largeurs augmentées
-            headers = ["Sel", "Nom", "Grille", "Joueurs", "Vill.", "Loups", "Tours", "Durée"]
 
-            # Configuration du tableau avec défilement horizontal et vertical
+            # Création des en-têtes de tableau - ajout de la colonne obstacles
+            col_widths = [10, 25, 12, 10, 12, 12, 12]
+            headers = ["Sélection", "Nom de partie", "Grille", "Obstacles", "Max joueurs", "Villageois", "Loups-garous"]
+
+            # Configuration du tableau
             canvas = tk.Canvas(main_frame, bg=DARK_FRAME, highlightthickness=0)
-            v_scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
-            h_scrollbar = ttk.Scrollbar(main_frame, orient="horizontal", command=canvas.xview)
-            
-            # Tableau en grid qui sera contenu dans le canvas
+            scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
             table_frame = tk.Frame(canvas, bg=DARK_FRAME)
 
-            # Configuration des colonnes avec poids
-            for i in range(len(col_widths)):
-                table_frame.columnconfigure(i, weight=col_widths[i])
+            # Configuration des colonnes
+            for i, width in enumerate(col_widths):
+                table_frame.columnconfigure(i, minsize=width*7)
 
             # Ajout des en-têtes
             for i, (header, width) in enumerate(zip(headers, col_widths)):
-                header_cell = tk.Label(table_frame, text=header, 
+                header_cell = tk.Label(table_frame, text=header, width=width,
                                       bg=DARK_HIGHLIGHT, fg=DARK_FG,
                                       relief="groove", bd=2, font=default_font)
-                header_cell.grid(row=0, column=i, sticky="nsew", padx=1)
+                header_cell.grid(row=0, column=i, sticky="nsew")
 
             # Séparateur
             separator = tk.Frame(table_frame, height=2, bg=DARK_FG)
@@ -82,7 +86,6 @@ def list_parties():
             # Traitement des parties
             selected_party_id = tk.IntVar(value=-1)
             row_index = 2
-            
             for party_id in parties_info["id_parties"]:
                 party_details = None
                 if str(party_id) in all_parties_details:
@@ -94,32 +97,33 @@ def list_parties():
                     failed_parties.append(party_id)
                     continue  # Passer à la prochaine itération
 
-                # Checkbox pour sélectionner une partie
-                select_checkbox = tk.Checkbutton(table_frame, bg=DARK_FRAME, fg=DARK_FG, 
-                                              activebackground=DARK_FRAME, activeforeground=DARK_FG,
-                                              selectcolor=DARK_HIGHLIGHT, command=lambda p_id=party_id: selected_party_id.set(p_id))
-                select_checkbox.grid(row=row_index, column=0, sticky="nsew", padx=1)
+                # Création des éléments d'interface utilisateur pour cette partie
+                select_var = tk.BooleanVar()
+                select_checkbox = tk.Checkbutton(table_frame, variable=select_var, bg=DARK_FRAME, fg=DARK_FG,
+                                                 activebackground=DARK_FRAME, activeforeground=DARK_FG,
+                                                 selectcolor=DARK_HIGHLIGHT, command=lambda p_id=party_id: selected_party_id.set(p_id))
+                select_checkbox.grid(row=row_index, column=0, sticky="w")
 
-                # Affichage des informations de partie avec ellipsis pour les textes longs
-                title_text = party_details["title_party"]
-                if len(title_text) > 18:  # Augmenté de 12 à 18
-                    title_text = title_text[:15] + "..."  # Augmenté de 9 à 15
+                # Formatage des données avec les nouvelles colonnes grid_rows et grid_cols
+                grid_rows = party_details.get("grid_rows", 10)
+                grid_cols = party_details.get("grid_cols", 10)
+                grid_display = f"{grid_rows}×{grid_cols}"
                 
-                # Créer des étiquettes avec un fond stable et s'adaptant à l'espace disponible
-                tk.Label(table_frame, text=title_text, 
-                       bg=DARK_FRAME, fg=DARK_FG, font=default_font).grid(row=row_index, column=1, sticky="nsew", padx=1)
-                tk.Label(table_frame, text=f"{party_details['grid_rows']}x{party_details['grid_cols']}", 
-                       bg=DARK_FRAME, fg=DARK_FG, font=default_font).grid(row=row_index, column=2, sticky="nsew", padx=1)
-                tk.Label(table_frame, text=party_details["max_players"], 
-                       bg=DARK_FRAME, fg=DARK_FG, font=default_font).grid(row=row_index, column=3, sticky="nsew", padx=1)
-                tk.Label(table_frame, text=party_details["villagers_count"], 
-                       bg=DARK_FRAME, fg=DARK_FG, font=default_font).grid(row=row_index, column=4, sticky="nsew", padx=1)
-                tk.Label(table_frame, text=party_details["werewolves_count"], 
-                       bg=DARK_FRAME, fg=DARK_FG, font=default_font).grid(row=row_index, column=5, sticky="nsew", padx=1)
-                tk.Label(table_frame, text=party_details["max_turns"], 
-                       bg=DARK_FRAME, fg=DARK_FG, font=default_font).grid(row=row_index, column=6, sticky="nsew", padx=1)
-                tk.Label(table_frame, text=f"{party_details['turn_duration']}s", 
-                       bg=DARK_FRAME, fg=DARK_FG, font=default_font).grid(row=row_index, column=7, sticky="nsew", padx=1)
+                # Récupération du nombre d'obstacles
+                obstacles_count = party_details.get("obstacles_count", 0)
+
+                tk.Label(table_frame, text=party_details["title_party"], width=col_widths[1],
+                         bg=DARK_FRAME, fg=DARK_FG, font=default_font).grid(row=row_index, column=1, sticky="w")
+                tk.Label(table_frame, text=grid_display, width=col_widths[2],
+                         bg=DARK_FRAME, fg=DARK_FG, font=default_font).grid(row=row_index, column=2, sticky="w")
+                tk.Label(table_frame, text=obstacles_count, width=col_widths[3],
+                         bg=DARK_FRAME, fg=DARK_FG, font=default_font).grid(row=row_index, column=3, sticky="w")
+                tk.Label(table_frame, text=party_details["max_players"], width=col_widths[4],
+                         bg=DARK_FRAME, fg=DARK_FG, font=default_font).grid(row=row_index, column=4, sticky="w")
+                tk.Label(table_frame, text=party_details["villagers_count"], width=col_widths[5],
+                         bg=DARK_FRAME, fg=DARK_FG, font=default_font).grid(row=row_index, column=5, sticky="w")
+                tk.Label(table_frame, text=party_details["werewolves_count"], width=col_widths[6],
+                         bg=DARK_FRAME, fg=DARK_FG, font=default_font).grid(row=row_index, column=6, sticky="w")
 
                 row_index += 1
 
@@ -132,28 +136,10 @@ def list_parties():
             else:
                 # Configuration du défilement
                 canvas.create_window((0, 0), window=table_frame, anchor='nw')
-                
-                # Mise à jour obligatoire pour obtenir les dimensions correctes
                 table_frame.update_idletasks()
-                
-                # Configuration du canvas et des barres de défilement
-                canvas.configure(
-                    scrollregion=canvas.bbox("all"),
-                    yscrollcommand=v_scrollbar.set,
-                    xscrollcommand=h_scrollbar.set
-                )
-                
-                # Placement des barres de défilement
+                canvas.configure(scrollregion=canvas.bbox("all"), yscrollcommand=scrollbar.set)
                 canvas.pack(side="left", fill="both", expand=True)
-                v_scrollbar.pack(side="right", fill="y")
-                h_scrollbar.pack(side="bottom", fill="x")
-
-                # Ajuster automatiquement la taille du canvas quand la fenêtre change
-                def on_configure(event):
-                    # Mettre à jour la région de défilement pour s'adapter à la taille
-                    canvas.configure(scrollregion=canvas.bbox("all"))
-                
-                canvas.bind('<Configure>', on_configure)
+                scrollbar.pack(side="right", fill="y")
 
             # Affichage des erreurs
             if failed_parties:
@@ -165,7 +151,7 @@ def list_parties():
     except Exception as e:
         messagebox.showerror("Erreur", f"Erreur de connexion : {str(e)}")
 
-# Modification de la fonction get_party_details
+# Modification de la fonction get_party_details pour prendre en compte les nouvelles colonnes
 def get_party_details(party_id):
     """
     Cette fonction récupère les détails d'une partie auprès du serveur.
@@ -174,8 +160,20 @@ def get_party_details(party_id):
     try:
         response = requests.get(f"{BASE_URL}/party_details/{party_id}")
         if response.status_code == 200:
-            details = response.json()
-            return details
+            party_data = response.json()
+            
+            # S'assurer que les champs obligatoires sont présents, sinon utiliser des valeurs par défaut
+            if "grid_rows" not in party_data and "grid_cols" not in party_data and "grid_size" in party_data:
+                # Pour la rétrocompatibilité avec l'ancien format
+                grid_size = party_data["grid_size"]
+                party_data["grid_rows"] = grid_size
+                party_data["grid_cols"] = grid_size
+            
+            # Assurer une valeur par défaut pour obstacles_count si absent
+            if "obstacles_count" not in party_data:
+                party_data["obstacles_count"] = 0
+                
+            return party_data
         else:
             messagebox.showwarning("Avertissement", f"Impossible de récupérer les détails de la partie {party_id}. Code: {response.status_code}")
             return None
@@ -219,8 +217,10 @@ def subscribe_to_party():
 
 def start_solo_game():
     """
-    Lance une partie en mode solo (contre des IA)
+    Lance une partie en mode solo dans une interface Tkinter
     """
+    global root  # Déclarer root comme une variable globale
+    
     player_name = entry_player.get().strip()
     role = selected_role.get()
 
@@ -231,52 +231,52 @@ def start_solo_game():
     if not role:
         messagebox.showinfo("Erreur", "Veuillez choisir un rôle.")
         return
-
+    
+    # Sauvegarder temporairement la fenêtre principale
+    root.withdraw()
+    
     try:
-        # Requête pour créer une nouvelle partie solo
-        data = {
-            "player_name": player_name,
-            "role_preference": role,
-            "solo_mode": True
-        }
-
-        response = requests.post(f"{BASE_URL}/create_solo_game", json=data)
-        if response.status_code == 200:
-            result = response.json()
-            messagebox.showinfo("Partie Solo", f"Partie solo créée ! ID Partie: {result.get('id_party')}, ID Joueur: {result.get('id_player')}")
-            list_parties()  # Rafraîchir la liste des parties
-        else:
-            messagebox.showinfo("Erreur", f"Impossible de créer une partie solo. Code: {response.status_code}")
+        # Chemin vers le script du jeu en version Tkinter
+        script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "game-local-tk.py")
+        
+        # Convertir loup-garou en loup pour compatibilité
+        actual_role = "villageois" if role == "villageois" else "loup"
+        
+        # Créer un processus pour exécuter le jeu avec interface Tkinter
+        process = subprocess.Popen([sys.executable, script_path], 
+                                  env=dict(os.environ, PLAYER_NAME=player_name, PLAYER_ROLE=role))
+        
+        # Attendre que le processus se termine
+        process.wait()
     except Exception as e:
-        messagebox.showerror("Erreur", f"Erreur lors de la connexion au serveur: {e}")
+        messagebox.showerror("Erreur", f"Impossible de lancer le jeu solo: {e}")
+    finally:
+        # Réafficher la fenêtre principale
+        root.deiconify()
 
 def create_gui():
-    global parties_frame, entry_player, default_font, selected_role
+    global parties_frame, entry_player, default_font, selected_role, root  # Ajoutez root ici
 
     root = tk.Tk()
     root.title("Client Loup-Garou")
-    root.geometry("1200x700")  # Taille augmentée (ancienne: 1000x650)
+    root.geometry("900x600")  # Fenêtre plus grande pour accommoder les colonnes supplémentaires
     root.configure(bg=DARK_BG)
-    
-    # Rendre la fenêtre redimensionnable et gérer l'expansion des widgets
-    root.grid_rowconfigure(1, weight=1)
-    root.grid_columnconfigure(0, weight=1)
-    
+
     # Style pour les widgets ttk
     style = ttk.Style()
     style.theme_use('clam')
     style.configure("TButton", background=DARK_BUTTON, foreground=DARK_FG)
     style.configure("TScrollbar", background=DARK_BG, troughcolor=DARK_FRAME, arrowcolor=DARK_FG)
-    
-    # Définition d'une police par défaut légèrement plus petite pour permettre plus de contenu
-    default_font = tkFont.Font(family="Helvetica", size=10)  # Taille réduite pour permettre plus de données
-    
+
+    # Définition d'une police par défaut
+    default_font = tkFont.Font(family="Helvetica", size=11)
+
     # Frame titre
     title_frame = tk.Frame(root, bg=DARK_BG, pady=10)
     title_frame.pack(fill='x')
     tk.Label(title_frame, text="Jeu du Loup-Garou", font=tkFont.Font(family="Helvetica", size=18, weight="bold"),
              bg=DARK_BG, fg=DARK_FG).pack()
-    
+
     # Bouton pour lister les parties
     button_frame = tk.Frame(root, bg=DARK_BG, pady=5)
     button_frame.pack(fill='x')
@@ -284,67 +284,76 @@ def create_gui():
                            command=list_parties, bg=DARK_BUTTON, fg=DARK_FG,
                            activebackground=DARK_HIGHLIGHT, activeforeground=DARK_FG)
     refresh_btn.pack(pady=5)
-    
+
     # Frame pour afficher les parties (au milieu)
     parties_frame = tk.Frame(root, bg=DARK_FRAME, padx=10, pady=10)
     parties_frame.pack(fill='both', expand=True, padx=10, pady=5)
-    
+
     # Frame du bas pour les contrôles de connexion
     bottom_frame = tk.Frame(root, bg=DARK_BG, padx=10, pady=10)
     bottom_frame.pack(fill='x', side=tk.BOTTOM)
-    
+
     # Frame pour le pseudo et la sélection du rôle
     controls_frame = tk.Frame(bottom_frame, bg=DARK_BG)
     controls_frame.pack(fill='x', pady=5)
-    
+
     # Division en deux colonnes
     left_column = tk.Frame(controls_frame, bg=DARK_BG)
     left_column.pack(side=tk.LEFT, fill='x', expand=True)
+
     right_column = tk.Frame(controls_frame, bg=DARK_BG)
     right_column.pack(side=tk.RIGHT, fill='x', expand=True, padx=(10, 0))
-    
+
     # Champ de saisie pour le pseudo du joueur (colonne gauche)
     tk.Label(left_column, text="Nom du joueur:", font=default_font,
              bg=DARK_BG, fg=DARK_FG).pack(anchor='w', pady=(0, 5))
+
     entry_player = tk.Entry(left_column, font=default_font, bg=DARK_HIGHLIGHT, fg=DARK_FG,
                            insertbackground=DARK_FG)
     entry_player.pack(fill='x', pady=(0, 5))
-    
+
     # Sélection du rôle (colonne droite)
     tk.Label(right_column, text="Préférence de rôle:", font=default_font,
              bg=DARK_BG, fg=DARK_FG).pack(anchor='w', pady=(0, 5))
+
     # Définir une valeur par défaut pour le rôle (villageois)
     selected_role = tk.StringVar(value="villageois")
     role_frame = tk.Frame(right_column, bg=DARK_BG)
     role_frame.pack(fill='x')
+
     villager_radio = tk.Radiobutton(role_frame, text="Villageois", variable=selected_role, value="villageois",
                                   font=default_font, bg=DARK_BG, fg=DARK_FG, selectcolor=DARK_HIGHLIGHT,
                                   activebackground=DARK_BG, activeforeground=DARK_FG)
     villager_radio.pack(side=tk.LEFT, padx=(0, 10))
+
     werewolf_radio = tk.Radiobutton(role_frame, text="Loup-Garou", variable=selected_role, value="loup-garou",
                                    font=default_font, bg=DARK_BG, fg=DARK_FG, selectcolor=DARK_HIGHLIGHT,
                                    activebackground=DARK_BG, activeforeground=DARK_FG)
     werewolf_radio.pack(side=tk.LEFT)
-    
+
     # Boutons d'actions (inscription à une partie et mode solo)
     buttons_frame = tk.Frame(bottom_frame, bg=DARK_BG)
     buttons_frame.pack(fill='x', pady=10)
+
     # Division en deux colonnes pour les boutons
     buttons_frame.columnconfigure(0, weight=1)
     buttons_frame.columnconfigure(1, weight=1)
+
     # Bouton d'inscription
     subscribe_btn = tk.Button(buttons_frame, text="S'inscrire à la partie", font=default_font,
                              command=subscribe_to_party, bg=DARK_BUTTON, fg=DARK_FG,
                              activebackground=DARK_HIGHLIGHT, activeforeground=DARK_FG)
     subscribe_btn.grid(row=0, column=0, padx=(0, 5), sticky="ew")
+
     # Bouton mode solo
     solo_btn = tk.Button(buttons_frame, text="Mode Solo", font=default_font,
                         command=start_solo_game, bg=DARK_BUTTON, fg=DARK_FG,
                         activebackground=DARK_HIGHLIGHT, activeforeground=DARK_FG)
     solo_btn.grid(row=0, column=1, padx=(5, 0), sticky="ew")
-    
+
     # Charger la liste des parties au démarrage
     list_parties()
+
     root.mainloop()
 
 if __name__ == "__main__":
