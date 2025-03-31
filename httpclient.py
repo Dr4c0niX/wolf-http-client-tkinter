@@ -44,8 +44,8 @@ def list_parties():
             main_frame = tk.Frame(parties_frame, bg=DARK_FRAME, bd=2, relief=tk.RIDGE)
             main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
             
-            # Optimiser les largeurs des colonnes - version plus compacte
-            col_widths = [3, 12, 5, 5, 5, 5, 5, 5]  # Largeurs plus compactes
+            # Modifier les largeurs des colonnes pour un affichage plus large
+            col_widths = [4, 20, 8, 8, 8, 8, 8, 8]  # Largeurs augmentées
             headers = ["Sel", "Nom", "Grille", "Joueurs", "Vill.", "Loups", "Tours", "Durée"]
 
             # Configuration du tableau avec défilement horizontal et vertical
@@ -102,8 +102,8 @@ def list_parties():
 
                 # Affichage des informations de partie avec ellipsis pour les textes longs
                 title_text = party_details["title_party"]
-                if len(title_text) > 12:  # Tronquer les titres trop longs
-                    title_text = title_text[:9] + "..."
+                if len(title_text) > 18:  # Augmenté de 12 à 18
+                    title_text = title_text[:15] + "..."  # Augmenté de 9 à 15
                 
                 # Créer des étiquettes avec un fond stable et s'adaptant à l'espace disponible
                 tk.Label(table_frame, text=title_text, 
@@ -255,29 +255,28 @@ def create_gui():
 
     root = tk.Tk()
     root.title("Client Loup-Garou")
-    root.geometry("1000x650")  # Fenêtre plus grande pour une meilleure visibilité
+    root.geometry("1200x700")  # Taille augmentée (ancienne: 1000x650)
     root.configure(bg=DARK_BG)
     
     # Rendre la fenêtre redimensionnable et gérer l'expansion des widgets
     root.grid_rowconfigure(1, weight=1)
     root.grid_columnconfigure(0, weight=1)
     
-
     # Style pour les widgets ttk
     style = ttk.Style()
     style.theme_use('clam')
     style.configure("TButton", background=DARK_BUTTON, foreground=DARK_FG)
     style.configure("TScrollbar", background=DARK_BG, troughcolor=DARK_FRAME, arrowcolor=DARK_FG)
-
-    # Définition d'une police par défaut
-    default_font = tkFont.Font(family="Helvetica", size=11)
-
+    
+    # Définition d'une police par défaut légèrement plus petite pour permettre plus de contenu
+    default_font = tkFont.Font(family="Helvetica", size=10)  # Taille réduite pour permettre plus de données
+    
     # Frame titre
     title_frame = tk.Frame(root, bg=DARK_BG, pady=10)
     title_frame.pack(fill='x')
     tk.Label(title_frame, text="Jeu du Loup-Garou", font=tkFont.Font(family="Helvetica", size=18, weight="bold"),
              bg=DARK_BG, fg=DARK_FG).pack()
-
+    
     # Bouton pour lister les parties
     button_frame = tk.Frame(root, bg=DARK_BG, pady=5)
     button_frame.pack(fill='x')
@@ -285,76 +284,67 @@ def create_gui():
                            command=list_parties, bg=DARK_BUTTON, fg=DARK_FG,
                            activebackground=DARK_HIGHLIGHT, activeforeground=DARK_FG)
     refresh_btn.pack(pady=5)
-
+    
     # Frame pour afficher les parties (au milieu)
     parties_frame = tk.Frame(root, bg=DARK_FRAME, padx=10, pady=10)
     parties_frame.pack(fill='both', expand=True, padx=10, pady=5)
-
+    
     # Frame du bas pour les contrôles de connexion
     bottom_frame = tk.Frame(root, bg=DARK_BG, padx=10, pady=10)
     bottom_frame.pack(fill='x', side=tk.BOTTOM)
-
+    
     # Frame pour le pseudo et la sélection du rôle
     controls_frame = tk.Frame(bottom_frame, bg=DARK_BG)
     controls_frame.pack(fill='x', pady=5)
-
+    
     # Division en deux colonnes
     left_column = tk.Frame(controls_frame, bg=DARK_BG)
     left_column.pack(side=tk.LEFT, fill='x', expand=True)
-
     right_column = tk.Frame(controls_frame, bg=DARK_BG)
     right_column.pack(side=tk.RIGHT, fill='x', expand=True, padx=(10, 0))
-
+    
     # Champ de saisie pour le pseudo du joueur (colonne gauche)
     tk.Label(left_column, text="Nom du joueur:", font=default_font,
              bg=DARK_BG, fg=DARK_FG).pack(anchor='w', pady=(0, 5))
-
     entry_player = tk.Entry(left_column, font=default_font, bg=DARK_HIGHLIGHT, fg=DARK_FG,
                            insertbackground=DARK_FG)
     entry_player.pack(fill='x', pady=(0, 5))
-
+    
     # Sélection du rôle (colonne droite)
     tk.Label(right_column, text="Préférence de rôle:", font=default_font,
              bg=DARK_BG, fg=DARK_FG).pack(anchor='w', pady=(0, 5))
-
     # Définir une valeur par défaut pour le rôle (villageois)
     selected_role = tk.StringVar(value="villageois")
     role_frame = tk.Frame(right_column, bg=DARK_BG)
     role_frame.pack(fill='x')
-
     villager_radio = tk.Radiobutton(role_frame, text="Villageois", variable=selected_role, value="villageois",
                                   font=default_font, bg=DARK_BG, fg=DARK_FG, selectcolor=DARK_HIGHLIGHT,
                                   activebackground=DARK_BG, activeforeground=DARK_FG)
     villager_radio.pack(side=tk.LEFT, padx=(0, 10))
-
     werewolf_radio = tk.Radiobutton(role_frame, text="Loup-Garou", variable=selected_role, value="loup-garou",
                                    font=default_font, bg=DARK_BG, fg=DARK_FG, selectcolor=DARK_HIGHLIGHT,
                                    activebackground=DARK_BG, activeforeground=DARK_FG)
     werewolf_radio.pack(side=tk.LEFT)
-
+    
     # Boutons d'actions (inscription à une partie et mode solo)
     buttons_frame = tk.Frame(bottom_frame, bg=DARK_BG)
     buttons_frame.pack(fill='x', pady=10)
-
     # Division en deux colonnes pour les boutons
     buttons_frame.columnconfigure(0, weight=1)
     buttons_frame.columnconfigure(1, weight=1)
-
     # Bouton d'inscription
     subscribe_btn = tk.Button(buttons_frame, text="S'inscrire à la partie", font=default_font,
                              command=subscribe_to_party, bg=DARK_BUTTON, fg=DARK_FG,
                              activebackground=DARK_HIGHLIGHT, activeforeground=DARK_FG)
     subscribe_btn.grid(row=0, column=0, padx=(0, 5), sticky="ew")
-
     # Bouton mode solo
     solo_btn = tk.Button(buttons_frame, text="Mode Solo", font=default_font,
                         command=start_solo_game, bg=DARK_BUTTON, fg=DARK_FG,
                         activebackground=DARK_HIGHLIGHT, activeforeground=DARK_FG)
     solo_btn.grid(row=0, column=1, padx=(5, 0), sticky="ew")
-
+    
     # Charger la liste des parties au démarrage
     list_parties()
-
     root.mainloop()
 
 if __name__ == "__main__":
